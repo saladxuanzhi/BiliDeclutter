@@ -1,0 +1,71 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build signed release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [[ -z "${sdk_root}" || ! -d "${sdk_root}" ]]; then
+            echo "ANDROID_SDK_ROOT/ANDROID_HOME does not point to an Android SDK." >&2
+            exit 1
+          fi
+
+          sdkmanager_path="$(command -v sdkmanager || true)"
+          if [[ -z "${sdkmanager_path}" ]]; then
+            sdkmanager_path="${sdk_root}/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          if [[ ! -x "${sdkmanager_path}" ]]; then
+            sdkmanager_path="$(find "${sdk_root}/cmdline-tools" -maxdepth 3 -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
+          fi
+          if [[ -z "${sdkmanager_path}" || ! -x "${sdkmanager_path}" ]]; then
+            echo "sdkmanager was not found under ${sdk_root}/cmdline-tools." >&2
+            exit 1
+          fi
+
+          "${sdkmanager_path}" "platforms;android-35" "build-tools;35.0.0"
+
+      # release 变体在 app/build.gradle.kts 里已配置：没有正式 keystore 时自动用
+      # debug keystore 兜底签名，所以这里构建出来的 APK 一定带签名。
+      - name: Build release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleRelease --warning-mode all
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -f "${apk}"
+          apksigner="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/apksigner"
+          "${apksigner}" verify --print-certs "${apk}"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
