@@ -1,6 +1,6 @@
 # BiliDeclutter
 
-一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，直接**禁用哔哩哔哩播放页的"免流"推广横幅**和**"开启通知权限"提醒弹窗**，并**删除播放页右下角易误触的音符悬浮按钮**。另外移除部分直播间官方添加的**马赛克遮罩**。
+一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，直接**禁用哔哩哔哩播放页的"免流"推广横幅**和**"开启通知权限"提醒弹窗**，并**删除播放页右下角易误触的音符悬浮按钮**。另外移除部分直播间官方添加的**马赛克遮罩**，并屏蔽直播间右下角的**运营/广告横幅**。
 
 ## 禁用免流推广横幅
 
@@ -36,6 +36,18 @@
 
 - 该功能默认开启，无需配置；仅对存在相关类的目标 App 生效，不影响其他版本。
 - 与 BiliRoamingX 的行为一致：只置空 `area_mask_info`，不修改其他直播间数据。
+
+## 屏蔽直播间右下角广告横幅
+
+直播间右下角（弹幕输入框上方）会轮播运营/广告横幅（如"秋日工坊"、"影之刃零"等），右侧还有可收起的挂件横幅。这些数据全部来自直播间信息接口 `getInfoByRoom` 返回的 `BiliLiveRoomInfo.bannerInfo`（JSON 字段 `activity_banner_info`），由 `LiveRoomOperationViewModelV3` 分发渲染：
+
+| JSON 字段 | 客户端字段 | 展示位置 |
+|---|---|---|
+| `normal_banner` | `normalBanner` | 右下角轮播横幅（含 ▼ 收起箭头） |
+| `pendant_banner` | `pendantBannerInfo` | 播放器右侧挂件横幅 |
+| `proactive_banner` | `activeBanner` | 主动弹出的推广横幅 |
+
+本模块与移除马赛克共用同一 hook 点（fastjson `JSON.parseObject`），在反序列化出 `BiliLiveRoomInfo` 后直接清理这三路数据。消费端对 null / 空列表均有判空保护，横幅控件不会创建，收起箭头也随之消失。
 
 ## 支持的目标 App
 

@@ -18,6 +18,9 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
  *
  * 另外移植 BiliRoamingX 的 remove_live_mask：
  *  - 反序列化后置空 BiliLiveRoomInfo.areaMaskInfo，见 [LiveMaskPatch]
+ *
+ * 屏蔽直播间右下角的运营/广告横幅：
+ *  - 反序列化后清理 BiliLiveRoomInfo.bannerInfo 的三路横幅数据，见 [LiveAdBannerPatch]
  */
 class XposedInit : IXposedHookLoadPackage {
 
@@ -39,6 +42,9 @@ class XposedInit : IXposedHookLoadPackage {
 
         // 4. 移除部分直播间官方添加的马赛克遮罩（移植自 BiliRoamingX）
         LiveMaskPatch.hook(lpparam.classLoader)
+
+        // 5. 屏蔽直播间右下角的运营/广告横幅
+        LiveAdBannerPatch.hook(lpparam.classLoader)
     }
 
     private companion object {
